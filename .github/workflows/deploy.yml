@@ -26,7 +26,7 @@ jobs:
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'EOF'
             set -e
-            cd ~/apm-tutorial-python
+            cd /home/terraform17/apm-tutorial-python
 
             # Setup Python environment
             python3 -m venv venv
