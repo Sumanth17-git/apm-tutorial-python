@@ -54,7 +54,8 @@ jobs:
       
             # Check if app is running
            # Check if app responds on port 8080
-                if curl -s http://127.0.0.1:8080/ > /dev/null; then
+                if curl -s http://127.0.0.1:9999/ > /dev/null; then
+                #if curl -s http://127.0.0.1:8080/ > /dev/null; then
                   echo "✅ Flask app is running and responding on port 8080"
                 else
                   echo "❌ Flask app did not respond. Showing logs:"
