@@ -62,21 +62,34 @@ jobs:
                   exit 1
                 fi
           EOF
-      
-      - name: Report Deployment to Datadog (DORA)
+      - name: Report Deployment to Datadog (API)
         run: |
-          npm install -g @datadog/datadog-ci
-
-          export DD_BETA_COMMANDS_ENABLED=1
-          export DD_SITE=${{ secrets.DD_SITE }}
-          export DD_API_KEY=${{ secrets.DD_API_KEY }}
-
-          deploy_start=$(date +%s)
-
-          datadog-ci dora deployment \
-            --service notes \
-            --env prod \
-            --started-at $deploy_start \
-            --finished-at $(date +%s) \
-            --git-repository-url "https://github.com/${{ github.repository }}" \
-            --git-commit-sha ${{ github.sha }}
+          deploy_start=$(date +%s%N)
+          deploy_end=$(date +%s%N)
+      
+          curl -X POST "https://api.${{ secrets.DD_SITE }}/api/v2/dora/deployment" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
+            -d @- <<EOF
+            {
+              "data": {
+                "attributes": {
+                  "service": "notes",
+                  "env": "prod",
+                  "version": "${{ github.sha }}",
+                  "started_at": $deploy_start,
+                  "finished_at": $deploy_end,
+                  "git": {
+                    "commit_sha": "${{ github.sha }}",
+                    "repository_url": "https://github.com/${{ github.repository }}"
+                  },
+                  "team": "sre",
+                  "custom_tags": [
+                    "project:notes-app",
+                    "deployer:github-actions"
+                  ]
+                }
+              }
+            }
+      EOF
