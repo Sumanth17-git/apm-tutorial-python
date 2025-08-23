@@ -1,0 +1,63 @@
+name: CI/CD Deploy apm-tutorial-python with Datadog
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Copy files to VM
+        run: |
+          rsync -avz --delete ./ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/${{ secrets.VM_USER }}/apm-tutorial-python
+
+      - name: Deploy Flask App with Datadog APM
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'EOF'
+            set -e
+            cd ~/apm-tutorial-python
+
+            # Setup Python environment
+            python3 -m venv venv
+            source venv/bin/activate
+            pip install -r requirements.txt
+
+            # Kill old process if running
+            pkill -f "ddtrace-run" || true
+
+            # Run app with Datadog env vars
+            nohup \
+              DD_SERVICE=notes \
+              DD_ENV=prod \
+              DD_VERSION=${GITHUB_SHA} \
+              DD_LOGS_INJECTION=true \
+              DD_PROFILING_ENABLED=true \
+              DD_RUNTIME_METRICS_ENABLED=true \
+              DD_SITE=${{ secrets.DD_SITE }} \
+              DD_AGENT_HOST=127.0.0.1 \
+              ddtrace-run python3 -m notes_app.app > app.log 2>&1 &
+          EOF
+
+      - name: Report Deployment to Datadog
+        run: |
+          npm install -g @datadog/datadog-ci
+          datadog-ci dora deployment start \
+            --service notes \
+            --env prod \
+            --version ${{ github.sha }} \
+            --repository ${{ github.repository }} \
+            --sha ${{ github.sha }} \
+            --datadog-api-key ${{ secrets.DD_API_KEY }} \
+            --datadog-site ${{ secrets.DD_SITE }}
+
