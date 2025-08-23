@@ -21,43 +21,32 @@ jobs:
       - name: Copy files to VM
         run: |
           rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" ./ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/terraform17/apm-tutorial-python
-  
+
       - name: Deploy Flask App with Datadog APM
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'EOF'
             set -e
             cd /home/terraform17/apm-tutorial-python
 
-            # Setup Python environment
-            python3 -m venv venv
+            # Activate Python venv
             source venv/bin/activate
-            pip install -r requirements.txt
 
             # Kill old process if running
             pkill -f "ddtrace-run" || true
 
-            # Run app with Datadog env vars
-            nohup \
-              DD_SERVICE=notes \
-              DD_ENV=prod \
-              DD_VERSION=${GITHUB_SHA} \
-              DD_LOGS_INJECTION=true \
-              DD_PROFILING_ENABLED=true \
-              DD_RUNTIME_METRICS_ENABLED=true \
-              DD_SITE=${{ secrets.DD_SITE }} \
-              DD_AGENT_HOST=127.0.0.1 \
-              ddtrace-run python3 -m notes_app.app > app.log 2>&1 &
-          EOF
+            # Run app in background using your script
+            nohup ./run_notes_app.sh > app.log 2>&1 &
 
-      - name: Report Deployment to Datadog
-        run: |
-          npm install -g @datadog/datadog-ci
-          datadog-ci dora deployment start \
-            --service notes \
-            --env prod \
-            --version ${{ github.sha }} \
-            --repository ${{ github.repository }} \
-            --sha ${{ github.sha }} \
-            --datadog-api-key ${{ secrets.DD_API_KEY }} \
-            --datadog-site ${{ secrets.DD_SITE }}
+            # Give app a few seconds to start
+            sleep 5
+
+            # Check if app is running
+            if pgrep -f "ddtrace-run" > /dev/null; then
+              echo "✅ Flask app is running in background"
+            else
+              echo "❌ Flask app failed to start. Showing logs:"
+              tail -n 50 app.log
+              exit 1
+            fi
+          EOF
 
