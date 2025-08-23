@@ -93,3 +93,32 @@ jobs:
               }
             }
           EOF
+      - name: Report Incident to Datadog (on failure)
+        if: failure()   # runs only if deployment failed
+        run: |
+          incident_start=$(date +%s%N)
+          incident_end=$((incident_start + 5000000000))   # +5s to avoid validation error
+
+          curl -X POST "https://api.${{ secrets.DD_SITE }}/api/v2/dora/incident" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
+            -d @- <<EOF
+          {
+            "data": {
+              "attributes": {
+                "services": ["notes"],
+                "started_at": $incident_start,
+                "finished_at": $incident_end,
+                "env": "prod",
+                "name": "Notes API deployment failure",
+                "severity": "high",
+                "version": "${{ github.sha }}",
+                "git": {
+                  "commit_sha": "${{ github.sha }}",
+                  "repository_url": "https://github.com/${{ github.repository }}"
+                }
+              }
+            }
+          }
+          EOF
