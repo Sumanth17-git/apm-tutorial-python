@@ -19,15 +19,26 @@ export DD_PROFILING_ENABLED="true"
 export DD_RUNTIME_METRICS_ENABLED="true"
 
 # --- Infrastructure Monitoring ---
-export DD_SITE="us5.datadoghq.com"
+export DD_SITE="${DD_SITE:-us5.datadoghq.com}"
 export DD_AGENT_HOST="127.0.0.1"
 export DD_DOGSTATSD_PORT="8125"
 
-# --- Deployment Metadata (optional: CI/CD overrides these) ---
-if command -v git &> /dev/null; then
-  export DD_GIT_REPOSITORY_URL=$(git config --get remote.origin.url || echo "unknown-repo")
+# --- Git Metadata (allow CI/CD to override) ---
+if [ -n "$GITHUB_SHA" ]; then
+  export DD_GIT_COMMIT_SHA="$GITHUB_SHA"
+else
   export DD_GIT_COMMIT_SHA=$(git rev-parse HEAD || echo "unknown-sha")
 fi
+
+if [ -n "$GITHUB_REPOSITORY" ]; then
+  export DD_GIT_REPOSITORY_URL="https://github.com/$GITHUB_REPOSITORY"
+else
+  export DD_GIT_REPOSITORY_URL=$(git config --get remote.origin.url || echo "unknown-repo")
+fi
+
+echo "🚀 Starting Notes App with Datadog APM..."
+echo "Service: $DD_SERVICE | Env: $DD_ENV | Version: $DD_VERSION"
+echo "Commit: $DD_GIT_COMMIT_SHA | Repo: $DD_GIT_REPOSITORY_URL"
 
 echo "🚀 Starting Notes App with Datadog APM..."
 #ddtrace-run python3 -m notes_app.app
