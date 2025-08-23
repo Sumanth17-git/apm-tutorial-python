@@ -13,7 +13,7 @@ note_handler = NotesLogic()
 
 @app.route('/')
 def index():
-    return "Welcome to our Datadog APM Tracing enabled notes app - v1!"
+    return "Welcome to our Datadog APM Tracing enabled notes app - v2!"
 
 
 @app.route('/notes', methods=['GET'])
