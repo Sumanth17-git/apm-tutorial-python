@@ -56,3 +56,14 @@ jobs:
                   exit 1
                 fi
           EOF
+      - name: Report Deployment to Datadog
+        run: |
+          npm install -g @datadog/datadog-ci
+          datadog-ci dora deployment start \
+            --service notes \
+            --env prod \
+            --version ${{ github.sha }} \
+            --repository ${{ github.repository }} \
+            --sha ${{ github.sha }} \
+            --datadog-api-key ${{ secrets.DD_API_KEY }} \
+            --datadog-site ${{ secrets.DD_SITE }}
