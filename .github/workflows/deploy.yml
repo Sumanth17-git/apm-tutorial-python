@@ -21,25 +21,31 @@ jobs:
       - name: Copy files to VM
         run: |
           rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" ./ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/terraform17/apm-tutorial-python
-
       - name: Deploy Flask App with Datadog APM
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'EOF'
             set -e
             cd /home/terraform17/apm-tutorial-python
-
-            # Activate Python venv
+      
+            # Create Python venv if not exists
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
             source venv/bin/activate
-
+      
+            # Install/update dependencies
+            pip install --upgrade pip
+            pip install -r requirements.txt
+      
             # Kill old process if running
             pkill -f "ddtrace-run" || true
-
+      
             # Run app in background using your script
             nohup ./run_notes_app.sh > app.log 2>&1 &
-
+      
             # Give app a few seconds to start
             sleep 5
-
+      
             # Check if app is running
             if pgrep -f "ddtrace-run" > /dev/null; then
               echo "✅ Flask app is running in background"
@@ -49,4 +55,3 @@ jobs:
               exit 1
             fi
           EOF
-
