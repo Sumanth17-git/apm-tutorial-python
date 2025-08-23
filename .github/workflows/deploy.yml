@@ -21,156 +21,75 @@ jobs:
       - name: Copy files to VM
         run: |
           rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" ./ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/terraform17/apm-tutorial-python
-
       - name: Deploy Flask App with Datadog APM
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'EOF'
             set -e
             cd /home/terraform17/apm-tutorial-python
-
+      
+            # Create Python venv if not exists
             if [ ! -d "venv" ]; then
               python3 -m venv venv
             fi
             source venv/bin/activate
-
+      
+            # Install/update dependencies
             pip install --upgrade pip
             pip install -r requirements.txt
-
+      
+            # Kill old process if running
             pkill -f "ddtrace-run" || true
             pkill -f "gunicorn" || true
-
+            
+            # Pass GitHub metadata + Datadog tags to app
             export GITHUB_SHA="${GITHUB_SHA}"
             export GITHUB_REPOSITORY="${GITHUB_REPOSITORY}"
             export DD_ENV="prod"
             export DD_VERSION="${GITHUB_SHA}"
-
+            # Run app in background using your script
             nohup ./run_notes_app.sh > app.log 2>&1 &
-
+      
+            # Give app a few seconds to start
             sleep 5
-
-            if curl -s http://127.0.0.1:8080/ > /dev/null; then
-              echo "✅ Flask app is running and responding on port 8080"
-            else
-              echo "❌ Flask app did not respond. Showing logs:"
-              tail -n 50 app.log
-              exit 1
-            fi
+      
+            # Check if app is running
+           # Check if app responds on port 8080
+                if curl -s http://127.0.0.1:8080/ > /dev/null; then
+                  echo "✅ Flask app is running and responding on port 8080"
+                else
+                  echo "❌ Flask app did not respond. Showing logs:"
+                  tail -n 50 app.log
+                  exit 1
+                fi
           EOF
-      - name: Report Deployment / Incident to Datadog
-        if: always()
+      - name: Report Deployment to Datadog (API)
         run: |
-          now=$(date +%s%N)
-
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "Reporting SUCCESS deployment + possible recovery"
-
-            # Deployment Event
-            curl -X POST "https://api.${{ secrets.DD_SITE }}/api/v2/dora/deployment" \
-              -H "Accept: application/json" \
-              -H "Content-Type: application/json" \
-              -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
-              -d @- <<EOF
+          deploy_start=$(date +%s%N)
+          deploy_end=$(date +%s%N)
+      
+          curl -X POST "https://api.${{ secrets.DD_SITE }}/api/v2/dora/deployment" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
+            -d @- <<EOF
             {
               "data": {
                 "attributes": {
                   "service": "notes",
                   "env": "prod",
                   "version": "${{ github.sha }}",
-                  "started_at": $now,
-                  "finished_at": $now,
-                  "status": "success",
+                  "started_at": $deploy_start,
+                  "finished_at": $deploy_end,
                   "git": {
                     "commit_sha": "${{ github.sha }}",
                     "repository_url": "https://github.com/${{ github.repository }}"
                   },
-                  "team": "sre"
+                  "team": "sre",
+                  "custom_tags": [
+                    "project:notes-app",
+                    "deployer:github-actions"
+                  ]
                 }
               }
             }
           EOF
-
-            # Recovery Incident (MTTR)
-            start_time="${{ env.INCIDENT_START }}"
-            if [ -z "$start_time" ]; then
-              start_time=$now
-            fi
-
-            curl -X POST "https://api.${{ secrets.DD_SITE }}/api/v2/dora/incident" \
-              -H "Accept: application/json" \
-              -H "Content-Type: application/json" \
-              -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
-              -d @- <<EOF
-            {
-              "data": {
-                "attributes": {
-                  "services": ["notes"],
-                  "started_at": $start_time,
-                  "finished_at": $now,
-                  "env": "prod",
-                  "name": "Notes API recovery",
-                  "severity": "low",
-                  "version": "${{ github.sha }}",
-                  "git": {
-                    "commit_sha": "${{ github.sha }}",
-                    "repository_url": "https://github.com/${{ github.repository }}"
-                  }
-                }
-              }
-            }
-          EOF
-
-          else
-            echo "Reporting FAILED deployment + failure incident"
-
-            # Save failure start time for later MTTR calculation
-            echo "INCIDENT_START=$now" >> $GITHUB_ENV
-
-            # Deployment failure
-            curl -X POST "https://api.${{ secrets.DD_SITE }}/api/v2/dora/deployment" \
-              -H "Accept: application/json" \
-              -H "Content-Type: application/json" \
-              -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
-              -d @- <<EOF
-            {
-              "data": {
-                "attributes": {
-                  "service": "notes",
-                  "env": "prod",
-                  "version": "${{ github.sha }}",
-                  "started_at": $now,
-                  "finished_at": $now,
-                  "status": "failure",
-                  "git": {
-                    "commit_sha": "${{ github.sha }}",
-                    "repository_url": "https://github.com/${{ github.repository }}"
-                  },
-                  "team": "sre"
-                }
-              }
-            }
-          EOF
-
-            # Failure Incident
-            curl -X POST "https://api.${{ secrets.DD_SITE }}/api/v2/dora/incident" \
-              -H "Accept: application/json" \
-              -H "Content-Type: application/json" \
-              -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
-              -d @- <<EOF
-            {
-              "data": {
-                "attributes": {
-                  "services": ["notes"],
-                  "started_at": $now,
-                  "env": "prod",
-                  "name": "Notes API deployment failure",
-                  "severity": "high",
-                  "version": "${{ github.sha }}",
-                  "git": {
-                    "commit_sha": "${{ github.sha }}",
-                    "repository_url": "https://github.com/${{ github.repository }}"
-                  }
-                }
-              }
-            }
-          EOF
-          fi
