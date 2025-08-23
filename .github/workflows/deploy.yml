@@ -39,7 +39,13 @@ jobs:
       
             # Kill old process if running
             pkill -f "ddtrace-run" || true
-      
+            pkill -f "gunicorn" || true
+            
+            # Pass GitHub metadata + Datadog tags to app
+            export GITHUB_SHA="${GITHUB_SHA}"
+            export GITHUB_REPOSITORY="${GITHUB_REPOSITORY}"
+            export DD_ENV="prod"
+            export DD_VERSION="${GITHUB_SHA}"
             # Run app in background using your script
             nohup ./run_notes_app.sh > app.log 2>&1 &
       
@@ -56,14 +62,4 @@ jobs:
                   exit 1
                 fi
           EOF
-      - name: Report Deployment to Datadog
-        run: |
-          npm install -g @datadog/datadog-ci
-          datadog-ci dora deployment start \
-            --service notes \
-            --env prod \
-            --version ${{ github.sha }} \
-            --repository ${{ github.repository }} \
-            --sha ${{ github.sha }} \
-            --datadog-api-key ${{ secrets.DD_API_KEY }} \
-            --datadog-site ${{ secrets.DD_SITE }}
+      
