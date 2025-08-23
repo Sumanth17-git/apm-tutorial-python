@@ -47,11 +47,12 @@ jobs:
             sleep 5
       
             # Check if app is running
-            if pgrep -f "ddtrace-run" > /dev/null; then
-              echo "✅ Flask app is running in background"
-            else
-              echo "❌ Flask app failed to start. Showing logs:"
-              tail -n 50 app.log
-              exit 1
-            fi
+           # Check if app responds on port 8080
+                if curl -s http://127.0.0.1:8080/ > /dev/null; then
+                  echo "✅ Flask app is running and responding on port 8080"
+                else
+                  echo "❌ Flask app did not respond. Showing logs:"
+                  tail -n 50 app.log
+                  exit 1
+                fi
           EOF
