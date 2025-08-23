@@ -20,7 +20,7 @@ jobs:
 
       - name: Copy files to VM
         run: |
-          rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" ./ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home//home/terraform17/apm-tutorial-python
+          rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" ./ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/terraform17/apm-tutorial-python
   
       - name: Deploy Flask App with Datadog APM
         run: |
