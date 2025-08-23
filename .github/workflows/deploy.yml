@@ -93,3 +93,61 @@ jobs:
               }
             }
           EOF
+      - name: Report Incident (Failure) to Datadog
+        if: failure()   # only if deploy step failed
+        run: |
+          incident_start=$(date +%s%N)
+
+          echo "INCIDENT_START=$incident_start" >> $GITHUB_ENV
+
+          curl -X POST "https://api.${{ secrets.DD_SITE }}/api/v2/dora/incident" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
+            -d @- <<EOF
+          {
+            "data": {
+              "attributes": {
+                "services": ["notes"],
+                "started_at": $incident_start,
+                "env": "prod",
+                "name": "Notes API deployment failure",
+                "severity": "high",
+                "version": "${{ github.sha }}",
+                "git": {
+                  "commit_sha": "${{ github.sha }}",
+                  "repository_url": "https://github.com/${{ github.repository }}"
+                }
+              }
+            }
+          }
+          EOF
+
+      - name: Report Incident (Recovery) to Datadog
+        if: success()   # only runs on successful redeploys
+        run: |
+          incident_end=$(date +%s%N)
+
+          curl -X POST "https://api.${{ secrets.DD_SITE }}/api/v2/dora/incident" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
+            -d @- <<EOF
+          {
+            "data": {
+              "attributes": {
+                "services": ["notes"],
+                "started_at": ${{ env.INCIDENT_START || incident_end }},
+                "finished_at": $incident_end,
+                "env": "prod",
+                "name": "Notes API recovery",
+                "severity": "low",
+                "version": "${{ github.sha }}",
+                "git": {
+                  "commit_sha": "${{ github.sha }}",
+                  "repository_url": "https://github.com/${{ github.repository }}"
+                }
+              }
+            }
+          }
+          EOF
