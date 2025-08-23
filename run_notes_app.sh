@@ -5,6 +5,8 @@ export DD_SERVICE="notes"
 export DD_ENV="dev"
 export DD_VERSION="0.1.0"    # In GitHub Actions, override with commit SHA
 export DD_TAGS="team:sre,project:notes-app"
+export FLASK_ENV=production
+export FLASK_DEBUG=0
 
 # --- APM Tracing ---
 export DD_TRACE_SAMPLE_RATE="1"
@@ -30,5 +32,5 @@ export DD_DOGSTATSD_PORT="8125"
 #fi
 
 echo "🚀 Starting Notes App with Datadog APM..."
-ddtrace-run python3 -m notes_app.app
+ddtrace-run python3 -m notes_app.app --no-reload
 
