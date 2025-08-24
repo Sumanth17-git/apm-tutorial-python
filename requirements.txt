@@ -5,6 +5,6 @@ ddtrace
 Werkzeug==2.2.2
 
 # Vulnerable demo libs (for SCA to detect)
-requests==2.19.1     # CVE-2018-18074
+
 PyYAML==5.3          # CVE-2020-14343
 Jinja2==2.11.1       # CVE-2020-28493
