@@ -5,8 +5,7 @@ ddtrace
 Werkzeug==2.2.2
 
 # Vulnerable libraries (not used by your app)
-PyYAML==5.3
-urllib3==1.23
-Pillow==6.2.1
-PyJWT==1.5.0
-bleach==2.1.3
+chardet==3.0.4        # old version commonly flagged
+idna==2.7             # old version commonly flagged
+PyYAML==5.3           # CVE-2020-14343
+PyJWT==1.5.0          # CVE-2017-11424
