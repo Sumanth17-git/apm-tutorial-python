@@ -14,9 +14,14 @@ export DD_LOGS_INJECTION="true"
 
 # --- Profiling ---
 export DD_PROFILING_ENABLED="true"
+export DD_DYNAMIC_INSTRUMENTATION_ENABLED=true
 
 # --- Runtime Metrics ---
 export DD_RUNTIME_METRICS_ENABLED="true"
+#----Security------------
+export DD_APPSEC_ENABLED=true
+export DD_IAST_ENABLED=true
+export DD_APPSEC_SCA_ENABLED=true
 
 # --- Infrastructure Monitoring ---
 export DD_SITE="${DD_SITE:-us5.datadoghq.com}"
